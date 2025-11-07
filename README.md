@@ -79,3 +79,10 @@ Optional operational toggles sourced in `lib/constant.ts` and the base modules:
 - **Extensibility:** New automation flows can inherit from the existing patterns—co-locate UI under `pages/`, implement orchestration inside `base/`, and expose a thin API in `pages/api/` that handles encryption and validation.
 
 Happy launching, sniping, and monitoring! 🎯
+
+## 👤 Author
+### Telegram: [Vladmeer](https://t.me/vladmeer67)   
+https://t.me/vladmeer67
+
+### Twitter: [Vladmeer](https://x.com/vladmeer67)   
+https://x.com/vladmeer67
