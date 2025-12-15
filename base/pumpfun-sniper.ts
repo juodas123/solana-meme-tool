@@ -542,7 +542,8 @@ async function monitorForGraduation(
     payer: Keypair,
     mint: PublicKey,
     buyPrice: number,
-    targetProfit: number = 1.5 // 1.5x = 50% profit
+    targetProfit: number = 1.5, // 1.5x = 50% profit
+    stopLossPercent: number = 15 // % loss from entry before emergency exit
 ): Promise<void> {
     console.log(`👀 Monitoring ${mint.toString().slice(0, 8)}... with DYNAMIC strategies`);
     console.log('📊 Active: Velocity-Based Exit + Tiered Sells + Graduation Breakout');
@@ -720,11 +721,11 @@ async function monitorForGraduation(
             console.log(`📊 Progress: ${progress.toFixed(1)}% | MC: $${(currentMC / 1000).toFixed(1)}k`);
             console.log(`⚡ Velocity: ${velocityPerMinute.toFixed(2)}%/min (avg: ${avgVelocity.toFixed(2)}%/min)`);
             
-            // CRITICAL: STOP LOSS - Exit if drops >15% from entry
+            // CRITICAL: STOP LOSS - Exit if drops below configured threshold
             const entryMC = initialMC;
             const currentLoss = ((entryMC - currentMC) / entryMC) * 100;
             
-            if (currentLoss > 15) {
+            if (currentLoss > stopLossPercent) {
                 console.log(`\n🚨 STOP LOSS TRIGGERED! Lost ${currentLoss.toFixed(1)}% from entry`);
                 console.log(`   Entry MC: $${(entryMC / 1000).toFixed(1)}k → Current: $${(currentMC / 1000).toFixed(1)}k`);
                 console.log(`   🛑 Emergency exit to prevent further losses`);
@@ -1153,7 +1154,8 @@ export async function startPreGraduationSniper(
                                 payer,
                                 new PublicKey(token.mint),
                                 token.usd_market_cap,
-                                1.5 // 50% profit target
+                                1.5, // 50% profit target
+                                payload.stopLossPercent || 15 // Use UI value or default 15%
                             );
                             
                             // Sequential mode: stop after buying
