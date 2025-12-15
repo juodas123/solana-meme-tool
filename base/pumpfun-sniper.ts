@@ -317,13 +317,17 @@ async function validatePreGraduationToken(
     filters: snipePayload
 ): Promise<{ valid: boolean; reason?: string }> {
     
-    // 1. Check bonding curve progress (30-60% = momentum sweet spot)
-    if (token.bondingCurveProgress < 30) {
-        return { valid: false, reason: `Bonding curve too low: ${token.bondingCurveProgress.toFixed(1)}% (need 30%+)` };
+    // 1. Check bonding curve progress based on strategy mode
+    const isConservative = filters.strategyMode === 'conservative';
+    const minBonding = isConservative ? 60 : 30;
+    const maxBonding = isConservative ? 80 : 60;
+    
+    if (token.bondingCurveProgress < minBonding) {
+        return { valid: false, reason: `Bonding curve too low: ${token.bondingCurveProgress.toFixed(1)}% (need ${minBonding}%+)` };
     }
     
-    if (token.bondingCurveProgress > 60) {
-        return { valid: false, reason: `Bonding curve too high: ${token.bondingCurveProgress.toFixed(1)}% (want 30-60%)` };
+    if (token.bondingCurveProgress > maxBonding) {
+        return { valid: false, reason: `Bonding curve too high: ${token.bondingCurveProgress.toFixed(1)}% (want ${minBonding}-${maxBonding}%)` };
     }
     
     // 2. Already graduated?
@@ -341,13 +345,17 @@ async function validatePreGraduationToken(
         };
     }
     
-    // 4. Market cap check (30-60% curve = $5k-$15k range)
-    if (token.usdMarketCap < 5000) {
-        return { valid: false, reason: `Market cap too low: $${(token.usdMarketCap / 1000).toFixed(1)}k (need $5k+)` };
+    // 4. Market cap check (adjust range based on strategy)
+    // Aggressive 30-60% = $5k-$15k | Conservative 60-80% = $12k-$25k
+    const minMarketCap = isConservative ? 12000 : 5000;
+    const maxMarketCap = isConservative ? 25000 : 15000;
+    
+    if (token.usdMarketCap < minMarketCap) {
+        return { valid: false, reason: `Market cap too low: $${(token.usdMarketCap / 1000).toFixed(1)}k (need $${minMarketCap/1000}k+)` };
     }
     
-    if (token.usdMarketCap > 15000) {
-        return { valid: false, reason: `Market cap too high: $${(token.usdMarketCap / 1000).toFixed(1)}k (want <$15k)` };
+    if (token.usdMarketCap > maxMarketCap) {
+        return { valid: false, reason: `Market cap too high: $${(token.usdMarketCap / 1000).toFixed(1)}k (want <$${maxMarketCap/1000}k)` };
     }
     
     // 5. Volume filter - SKIP for brand new tokens (no 24h history yet)
@@ -1002,9 +1010,14 @@ export async function startPreGraduationSniper(
                 complete: token.complete
             };
             
-            // Check if in momentum target range (30-60%)
-            if (progress >= 30 && progress <= 60 && !token.complete) {
-                console.log(`\n🎯 NEW TOKEN: ${token.symbol}`);
+            // Check if in momentum target range based on strategy mode
+            const isConservative = payload.strategyMode === 'conservative';
+            const minBonding = isConservative ? 60 : 30;
+            const maxBonding = isConservative ? 80 : 60;
+            const strategyLabel = isConservative ? '60-80% (Conservative)' : '30-60% (Aggressive)';
+            
+            if (progress >= minBonding && progress <= maxBonding && !token.complete) {
+                console.log(`\n🎯 NEW TOKEN: ${token.symbol} [${strategyLabel}]`);
                 console.log(`   Address: ${token.mint}`);
                 console.log(`   Bonding: ${progress.toFixed(1)}% | MC: $${(token.usd_market_cap / 1000).toFixed(1)}k | Liq: ${token.virtual_sol_reserves.toFixed(1)} SOL`);
                 

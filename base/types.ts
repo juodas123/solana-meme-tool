@@ -100,6 +100,8 @@ export type snipePayload = {
   maxLiquidity: number;
   poolSupply: number;
   privateKey: string;
+  // Strategy mode
+  strategyMode?: 'aggressive' | 'conservative'; // 30-60% vs 60-80% bonding
   // Sell configuration
   takeProfitPercent?: number;  // e.g., 100 = 2x (100% profit)
   stopLossPercent?: number;    // e.g., 50 = -50% loss

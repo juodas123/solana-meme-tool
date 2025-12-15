@@ -10,6 +10,9 @@ export default function PumpFunSniper() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   
+  // Strategy mode
+  const [strategyMode, setStrategyMode] = useState<'aggressive' | 'conservative'>('aggressive');
+  
   // Filters
   const [enableVolumeFilter, setEnableVolumeFilter] = useState(false);
   
@@ -27,6 +30,7 @@ export default function PumpFunSniper() {
         action: 'start',
         amount,
         slippage,
+        strategyMode,
         enableVolumeFilter,
         takeProfitPercent,
         stopLossPercent,
@@ -107,6 +111,35 @@ export default function PumpFunSniper() {
                     <p className="mt-1">Set <code className="bg-green-100 dark:bg-green-900 px-1 rounded">TRADING_PRIVATE_KEY</code> in your <code className="bg-green-100 dark:bg-green-900 px-1 rounded">.env</code> file</p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Strategy Mode */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <label className="block mb-3 font-semibold text-blue-900 dark:text-blue-100">Trading Strategy</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setStrategyMode('aggressive')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    strategyMode === 'aggressive'
+                      ? 'border-blue-500 bg-blue-100 dark:bg-blue-900'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="font-semibold">🚀 Aggressive (30-60%)</div>
+                  <div className="text-xs mt-1 text-gray-600 dark:text-gray-400">High risk, 3-5x profit potential</div>
+                </button>
+                <button
+                  onClick={() => setStrategyMode('conservative')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    strategyMode === 'conservative'
+                      ? 'border-green-500 bg-green-100 dark:bg-green-900'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-green-300'
+                  }`}
+                >
+                  <div className="font-semibold">🛡️ Conservative (60-80%)</div>
+                  <div className="text-xs mt-1 text-gray-600 dark:text-gray-400">Safer, 1.3-1.5x profit potential</div>
+                </button>
               </div>
             </div>
 
