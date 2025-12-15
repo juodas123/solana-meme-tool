@@ -48,4 +48,21 @@ import { astralaneBundle, astralaneBundleBuy } from "../astralane";
 import { CompleteEvent, CreateEvent, CreateTokenMetadata, PriorityFee, PumpFunEventHandlers, PumpFunEventType, Result, SetParamsEvent, TradeEvent, TransactionResult } from "../types";
 import { execute } from "../legacy";
 
+// Stub export to fix build warnings
+export class PumpFunSDK {
+    constructor(provider?: any) {}
+    
+    async createAndBuy(params: any): Promise<any> {
+        throw new Error('PumpFunSDK not implemented');
+    }
+    
+    async buy(params: any): Promise<any> {
+        throw new Error('PumpFunSDK not implemented');
+    }
+    
+    async sell(params: any): Promise<any> {
+        throw new Error('PumpFunSDK not implemented');
+    }
+}
+
 // Private code

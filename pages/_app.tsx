@@ -63,7 +63,7 @@ export default function App({ Component, pageProps }: AppProps) {
               <Head>
                 <title>MemeCoin Token Launch Pad</title>
               </Head>
-              <WalletProvider wallets={wallets} autoConnect={true}>
+              <WalletProvider wallets={wallets} autoConnect={false}>
                 <DynamicContent {...pageProps}>
                   <WalletModalProvider>
                     <HeroUIProvider>

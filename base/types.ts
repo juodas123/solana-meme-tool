@@ -98,9 +98,32 @@ export type snipePayload = {
   isSetMev: number;
   minLiquidity: number;
   maxLiquidity: number;
-  marketCost: number;
   poolSupply: number;
   privateKey: string;
+  // Sell configuration
+  takeProfitPercent?: number;  // e.g., 100 = 2x (100% profit)
+  stopLossPercent?: number;    // e.g., 50 = -50% loss
+  trailingStopPercent?: number; // e.g., 20 = sell if drops 20% from peak
+  maxHoldTimeMinutes?: number;  // e.g., 60 = sell after 1 hour regardless
+  // Advanced strategies
+  enablePortfolioMode?: boolean; // Hold multiple positions simultaneously
+  maxPositions?: number;         // Max concurrent positions (3-5 recommended)
+  enableAdaptiveSizing?: boolean; // Adjust buy amount based on liquidity
+  enableTieredProfits?: boolean;  // Sell in chunks (50% at 1.5x, 30% at 2x, 20% moon)
+  enableVolumeFilter?: boolean;   // Only buy high-activity tokens
+  minSwapsPerMinute?: number;     // Min swap count to validate activity
+  enableSmartStopLoss?: boolean;  // Trailing stop that locks in profits
+  enableAntiRug?: boolean;        // Check top holders, mint authority
+  maxTopHolderPercent?: number;   // Max % top 10 holders can own
+}
+
+export type PositionTracker = {
+  tokenAddress: string;
+  buyPrice: number;
+  peakPrice: number;
+  buyTime: number;
+  amount: number;
+  signature: string;
 }
 
 export interface Data {
