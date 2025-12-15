@@ -1033,6 +1033,10 @@ export async function startPreGraduationSniper(
                 // Check TWICE to detect wallet distribution tricks during monitoring
                 console.log('   ⏳ Checking holder distribution...');
                 
+                // CRITICAL: Wait for RPC propagation first (websocket is faster than RPC indexing)
+                console.log('   ⏳ Waiting 5s for RPC to index new mint...');
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
                 try {
                     const tokenMint = new PublicKey(token.mint);
                     
@@ -1054,8 +1058,8 @@ export async function startPreGraduationSniper(
                     }, 0);
                     
                     // WAIT and CHECK AGAIN (detect wallet distribution during monitoring)
-                    console.log('   ⏳ Waiting 8s to verify stability...');
-                    await new Promise(resolve => setTimeout(resolve, 8000));
+                    console.log('   ⏳ Waiting 5s to verify stability...');
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                     
                     const finalAccounts = await connection.getTokenLargestAccounts(tokenMint);
                     const finalSupplyInfo = await connection.getTokenSupply(tokenMint);
