@@ -119,9 +119,9 @@ export default function PumpFunSniper() {
                   step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.1"
+                  placeholder="0.01"
                 />
-                <p className="text-xs text-gray-500 mt-1">Start small for testing (0.1 SOL = ~$20)</p>
+                <p className="text-xs text-gray-500 mt-1">Start VERY small for testing (0.01 SOL = ~$2)</p>
               </div>
 
               <div>
@@ -223,7 +223,7 @@ export default function PumpFunSniper() {
           <div className="mt-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <h3 className="font-semibold mb-2">💡 Momentum Scalping Tips:</h3>
             <ul className="text-sm space-y-1">
-              <li>• Start with 0.1 SOL to test the strategy</li>
+              <li>• Start with 0.01 SOL to test the strategy</li>
               <li>• Best time: High activity hours (9am-5pm EST)</li>
               <li>• This strategy catches tokens BEFORE graduation hype</li>
               <li>• Higher win rate (40-50%) than ultra-early sniping</li>

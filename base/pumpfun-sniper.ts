@@ -1028,32 +1028,75 @@ export async function startPreGraduationSniper(
                     return;
                 }
                 
-                // CRITICAL SAFETY CHECK 4: Holder Distribution
-                // Wait 5 seconds for holder data to stabilize on-chain, then check largest holder
-                console.log('   ⏳ Waiting 5s for holder distribution...');
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                // CRITICAL SAFETY CHECK 4: Advanced Holder Distribution (Anti-Rug)
+                // Check TWICE to detect wallet distribution tricks during monitoring
+                console.log('   ⏳ Checking holder distribution...');
                 
                 try {
                     const tokenMint = new PublicKey(token.mint);
-                    const largestAccounts = await connection.getTokenLargestAccounts(tokenMint);
-                    const totalSupplyInfo = await connection.getTokenSupply(tokenMint);
                     
-                    if (largestAccounts.value.length > 0 && totalSupplyInfo.value.uiAmount) {
-                        const largestHolder = largestAccounts.value[0];
-                        // Use uiAmount for both - handles decimals automatically
-                        const largestHolderAmount = largestHolder.uiAmount || 0;
-                        const totalSupplyUI = totalSupplyInfo.value.uiAmount;
-                        const largestHolderPercent = (largestHolderAmount / totalSupplyUI) * 100;
-                        
-                        if (largestHolderPercent > 60) {
-                            console.log(`   ❌ Rejected: Largest holder owns ${largestHolderPercent.toFixed(1)}% (max 60%)`);
-                            return;
-                        }
-                        console.log(`   ✅ Holder distribution: Largest ${largestHolderPercent.toFixed(1)}%`);
+                    // FIRST CHECK: Get initial holder distribution
+                    const initialAccounts = await connection.getTokenLargestAccounts(tokenMint);
+                    const initialSupplyInfo = await connection.getTokenSupply(tokenMint);
+                    
+                    if (!initialSupplyInfo.value.uiAmount || initialAccounts.value.length === 0) {
+                        console.log('   ❌ Rejected: Cannot verify holder distribution');
+                        return;
                     }
+                    
+                    const totalSupply = initialSupplyInfo.value.uiAmount;
+                    const initialLargestPercent = ((initialAccounts.value[0].uiAmount || 0) / totalSupply) * 100;
+                    
+                    // Calculate top 5 holders combined (rug protection)
+                    const top5Combined = initialAccounts.value.slice(0, 5).reduce((sum, holder) => {
+                        return sum + ((holder.uiAmount || 0) / totalSupply) * 100;
+                    }, 0);
+                    
+                    // WAIT and CHECK AGAIN (detect wallet distribution during monitoring)
+                    console.log('   ⏳ Waiting 8s to verify stability...');
+                    await new Promise(resolve => setTimeout(resolve, 8000));
+                    
+                    const finalAccounts = await connection.getTokenLargestAccounts(tokenMint);
+                    const finalSupplyInfo = await connection.getTokenSupply(tokenMint);
+                    
+                    if (!finalSupplyInfo.value.uiAmount) {
+                        console.log('   ❌ Rejected: Cannot verify final distribution');
+                        return;
+                    }
+                    
+                    const finalTotalSupply = finalSupplyInfo.value.uiAmount;
+                    const finalLargestPercent = ((finalAccounts.value[0].uiAmount || 0) / finalTotalSupply) * 100;
+                    
+                    // Calculate final top 5 holders
+                    const finalTop5Combined = finalAccounts.value.slice(0, 5).reduce((sum, holder) => {
+                        return sum + ((holder.uiAmount || 0) / finalTotalSupply) * 100;
+                    }, 0);
+                    
+                    // REJECTION CRITERIA:
+                    // 1. Largest holder >50% (stricter than before)
+                    if (finalLargestPercent > 50) {
+                        console.log(`   ❌ Rejected: Largest holder ${finalLargestPercent.toFixed(1)}% (max 50%)`);
+                        return;
+                    }
+                    
+                    // 2. Top 5 holders combined >75% (whale cartel protection)
+                    if (finalTop5Combined > 75) {
+                        console.log(`   ❌ Rejected: Top 5 holders ${finalTop5Combined.toFixed(1)}% (max 75%)`);
+                        return;
+                    }
+                    
+                    // 3. Holder distribution CHANGED dramatically (wallet distribution trick)
+                    const holderChange = Math.abs(finalLargestPercent - initialLargestPercent);
+                    if (holderChange > 15) {
+                        console.log(`   ❌ Rejected: Holder changed ${holderChange.toFixed(1)}% during monitoring (suspicious distribution)`);
+                        return;
+                    }
+                    
+                    console.log(`   ✅ Holder check: Largest ${finalLargestPercent.toFixed(1)}% | Top 5: ${finalTop5Combined.toFixed(1)}%`);
+                    
                 } catch (error) {
-                    console.log(`   ⚠️ Could not verify holder distribution: ${error}`);
-                    // Continue anyway - this is a soft check
+                    console.log(`   ❌ Rejected: Holder verification failed - ${error}`);
+                    return; // HARD FAIL - don't buy if we can't verify
                 }
                 
                 // Validate remaining criteria
