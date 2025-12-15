@@ -961,8 +961,12 @@ export async function startPreGraduationSniper(
     
     monitoringActive = true;
     
+    const isConservative = payload.strategyMode === 'conservative';
+    const bondingRange = isConservative ? '60-80%' : '30-60%';
+    const strategyName = isConservative ? '🛡️ Conservative' : '🚀 Aggressive';
+    
     console.log('🚀 Starting Momentum Scalping Sniper...');
-    console.log('🎯 Strategy: Buy at 30-60% bonding curve, sell at 85-90%');
+    console.log(`🎯 Strategy: ${strategyName} - Buy at ${bondingRange} bonding curve, sell at 85-95%`);
     console.log('💰 Buy amount:', payload.amount, 'SOL');
     console.log('📡 Connecting to real-time token feed...\n');
     
@@ -970,10 +974,11 @@ export async function startPreGraduationSniper(
     pumpPortalWs = new WebSocket(PUMPPORTAL_WS);
     
     pumpPortalWs.on('open', () => {
+        const bondingRange = payload.strategyMode === 'conservative' ? '60-80%' : '30-60%';
         console.log('✅ Connected to PumpPortal real-time feed');
         pumpPortalWs!.send(JSON.stringify({ method: 'subscribeNewToken' }));
         console.log('📡 Subscribed to new token creations');
-        console.log('⏰ Monitoring for 30-60% bonding curve entries...\n');
+        console.log(`⏰ Monitoring for ${bondingRange} bonding curve entries...\n`);
     });
     
     pumpPortalWs.on('message', async (data) => {
