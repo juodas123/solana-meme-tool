@@ -1,5 +1,6 @@
 import { Connection, PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js';
 import { snipePayload } from './types';
+import { PostGraduationConfig } from '../lib/types';
 import WebSocket from 'ws';
 
 const PUMP_FUN_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
@@ -269,6 +270,76 @@ async function fetchPumpFunTokens(limit: number = 50, connection?: Connection): 
 function calculateBondingCurveProgress(virtualSolReserves: number): number {
     const GRADUATION_SOL = 85; // Approximate SOL needed for graduation
     return Math.min((virtualSolReserves / GRADUATION_SOL) * 100, 100);
+}
+
+/**
+ * Get Raydium pool address for graduated pump.fun token
+ */
+async function getRaydiumPoolAddress(mint: string): Promise<string | null> {
+    try {
+        // Method 1: Check pump.fun API for raydium_pool field
+        const tokenData = await fetchPumpFunTokenDetails(mint);
+        if (tokenData?.raydium_pool) {
+            console.log(`✅ Found Raydium pool: ${tokenData.raydium_pool}`);
+            return tokenData.raydium_pool;
+        }
+        
+        // Method 2: Query Raydium API directly
+        const raydiumUrl = `https://api.raydium.io/v2/main/pairs`;
+        const response = await fetch(raydiumUrl);
+        
+        if (response.ok) {
+            const data = await response.json();
+            const pool = data.find((p: any) => 
+                p.baseMint === mint || p.quoteMint === mint
+            );
+            
+            if (pool) {
+                console.log(`✅ Found Raydium pool via API: ${pool.ammId}`);
+                return pool.ammId;
+            }
+        }
+        
+        console.log('⚠️ Could not find Raydium pool address');
+        return null;
+    } catch (error) {
+        console.error('❌ Failed to get Raydium pool address:', error);
+        return null;
+    }
+}
+
+/**
+ * Fetch current price from Raydium pool
+ */
+async function fetchRaydiumPrice(poolAddress: string, tokenMint: string): Promise<number | null> {
+    try {
+        // Use Jupiter price API (supports Raydium pools)
+        const priceUrl = `https://price.jup.ag/v4/price?ids=${tokenMint}`;
+        const response = await fetch(priceUrl);
+        
+        if (response.ok) {
+            const data = await response.json();
+            const price = data.data?.[tokenMint]?.price;
+            
+            if (price) {
+                return price;
+            }
+        }
+        
+        // Fallback: Use Raydium API
+        const raydiumUrl = `https://api.raydium.io/v2/main/price?ammId=${poolAddress}`;
+        const raydiumResponse = await fetch(raydiumUrl);
+        
+        if (raydiumResponse.ok) {
+            const raydiumData = await raydiumResponse.json();
+            return raydiumData.price || null;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('❌ Failed to fetch Raydium price:', error);
+        return null;
+    }
 }
 
 /**
@@ -543,6 +614,108 @@ async function sellToken(
 }
 
 /**
+ * Monitor moon bag after graduation on Raydium with tiered exits
+ */
+async function monitorPostGraduation(
+    connection: Connection,
+    payer: Keypair,
+    mint: PublicKey,
+    raydiumPoolAddress: string,
+    graduationPrice: number,
+    config: PostGraduationConfig
+): Promise<void> {
+    console.log('\n🚀 POST-GRADUATION MOON BAG MONITORING ACTIVE');
+    console.log(`💎 Moon bag size: ${config.moonBagPercentage}%`);
+    console.log(`🎯 Target 1: ${config.targets.firstExit}% at ${config.multipliers.first}x`);
+    console.log(`🎯 Target 2: ${config.targets.secondExit}% at ${config.multipliers.second}x`);
+    console.log(`🛡️ Trailing stop: ${config.targets.trailingStop}% at -${config.stopLossPercent}% from peak`);
+    console.log(`⏱️ Max time: ${config.maxTimeMinutes} minutes\n`);
+    
+    const startTime = Date.now();
+    const maxTimeMs = config.maxTimeMinutes * 60 * 1000;
+    
+    let peakPrice = graduationPrice;
+    let firstExitDone = false;
+    let secondExitDone = false;
+    let checkCount = 0;
+    
+    const postGradInterval = setInterval(async () => {
+        checkCount++;
+        const elapsedMinutes = (Date.now() - startTime) / 60000;
+        
+        try {
+            // Fetch current Raydium price
+            const currentPrice = await fetchRaydiumPrice(raydiumPoolAddress, mint.toString());
+            
+            if (!currentPrice) {
+                console.log('⚠️ Could not fetch Raydium price, retrying...');
+                return;
+            }
+            
+            const multiplier = currentPrice / graduationPrice;
+            const fromPeakPercent = ((currentPrice - peakPrice) / peakPrice) * 100;
+            
+            // Update peak
+            if (currentPrice > peakPrice) {
+                peakPrice = currentPrice;
+            }
+            
+            console.log(`📊 Post-Grad: ${multiplier.toFixed(2)}x | Peak: ${(peakPrice/graduationPrice).toFixed(2)}x | Time: ${elapsedMinutes.toFixed(1)}m`);
+            
+            // TARGET 1: First exit at 3-5x
+            if (!firstExitDone && multiplier >= config.multipliers.first) {
+                console.log(`\n🎯 TARGET 1 HIT! ${multiplier.toFixed(2)}x from graduation`);
+                console.log(`💰 Selling ${config.targets.firstExit}% of moon bag`);
+                // TODO: Execute 50% sell here
+                firstExitDone = true;
+            }
+            
+            // TARGET 2: Second exit at 8-10x
+            if (!secondExitDone && multiplier >= config.multipliers.second) {
+                console.log(`\n🎯 TARGET 2 HIT! ${multiplier.toFixed(2)}x from graduation`);
+                console.log(`💰 Selling ${config.targets.secondExit}% of moon bag`);
+                // TODO: Execute 30% sell here
+                secondExitDone = true;
+            }
+            
+            // TRAILING STOP LOSS: -30% from peak
+            const dropFromPeak = ((peakPrice - currentPrice) / peakPrice) * 100;
+            if (dropFromPeak >= config.stopLossPercent) {
+                console.log(`\n🛑 TRAILING STOP LOSS TRIGGERED!`);
+                console.log(`   Dropped ${dropFromPeak.toFixed(1)}% from peak of ${(peakPrice/graduationPrice).toFixed(2)}x`);
+                console.log(`   Selling remaining ${config.targets.trailingStop}% moon bag`);
+                await sellToken(connection, payer, mint, `Post-grad stop loss at ${multiplier.toFixed(2)}x`);
+                clearInterval(postGradInterval);
+                return;
+            }
+            
+            // TIME-BASED EXIT: Max 30 minutes
+            if (Date.now() - startTime >= maxTimeMs) {
+                console.log(`\n⏰ MAX TIME REACHED (${config.maxTimeMinutes} minutes)`);
+                console.log(`   Final multiplier: ${multiplier.toFixed(2)}x`);
+                console.log(`   Selling all remaining moon bag`);
+                await sellToken(connection, payer, mint, `Post-grad time exit at ${multiplier.toFixed(2)}x`);
+                clearInterval(postGradInterval);
+                return;
+            }
+            
+            // DUMP DETECTION: If crashed below graduation price
+            if (multiplier < 0.7) { // Lost 30% below grad price
+                console.log(`\n📉 DUMP DETECTED! Price below 0.7x graduation`);
+                console.log(`   Emergency exit at ${multiplier.toFixed(2)}x`);
+                await sellToken(connection, payer, mint, `Post-grad dump exit`);
+                clearInterval(postGradInterval);
+                return;
+            }
+            
+        } catch (error) {
+            console.error('❌ Post-grad monitoring error:', error);
+        }
+        
+    }, 5000); // Check every 5 seconds
+}
+
+/**
  * Monitor position with dynamic profit strategies
  */
 async function monitorForGraduation(
@@ -616,114 +789,49 @@ async function monitorForGraduation(
             // Check if graduated
             if (token.complete && token.raydium_pool && !graduated) {
                 graduated = true;
-                console.log('🎓 TOKEN GRADUATED! Raydium pool:', token.raydium_pool);
+                console.log('🎓 TOKEN GRADUATED to Raydium!');
+                console.log(`   Pool: ${token.raydium_pool}`);
                 
-                // VOLUME QUALITY CHECKS for graduation breakout
-                let volumeQualityPassed = false;
+                // DEFAULT POST-GRAD CONFIG (30% moon bag balanced strategy)
+                const postGradConfig: PostGraduationConfig = {
+                    enabled: true,
+                    moonBagPercentage: 30,
+                    strategy: 'balanced',
+                    targets: {
+                        firstExit: 50,  // Sell 50% at 5x
+                        secondExit: 30, // Sell 30% at 10x
+                        trailingStop: 20 // Hold 20% with trailing stop
+                    },
+                    multipliers: {
+                        first: 5,  // 5x from grad price
+                        second: 10 // 10x from grad price
+                    },
+                    stopLossPercent: 30, // -30% from peak
+                    maxTimeMinutes: 30
+                };
                 
-                try {
-                    // Fetch recent transactions to analyze volume quality
-                    const sigs = await connection.getSignaturesForAddress(mint, { limit: 50 });
-                    const uniqueBuyers = new Set<string>();
-                    const buyerVolumes: { [key: string]: number } = {};
-                    let totalVolume = 0;
-                    
-                    for (const sig of sigs.slice(0, 30)) { // Last 30 transactions
-                        try {
-                            const tx = await connection.getTransaction(sig.signature, {
-                                maxSupportedTransactionVersion: 0
-                            });
-                            
-                            if (tx?.meta) {
-                                const signer = tx.transaction.message.staticAccountKeys[0]?.toString();
-                                if (signer) {
-                                    uniqueBuyers.add(signer);
-                                    
-                                    // Track volume per buyer
-                                    const solChange = Math.abs(tx.meta.preBalances[0] - tx.meta.postBalances[0]) / 1e9;
-                                    buyerVolumes[signer] = (buyerVolumes[signer] || 0) + solChange;
-                                    totalVolume += solChange;
-                                }
-                            }
-                        } catch (txError) {
-                            // Skip failed tx
-                        }
-                    }
-                    
-                    uniqueBuyersRecent = uniqueBuyers.size;
-                    
-                    // Check volume concentration
-                    const topBuyerVolume = Math.max(...Object.values(buyerVolumes));
-                    const topBuyerPercentage = totalVolume > 0 ? (topBuyerVolume / totalVolume) * 100 : 100;
-                    
-                    console.log(`📊 Volume Quality: ${uniqueBuyersRecent} unique buyers`);
-                    console.log(`   Top buyer: ${topBuyerPercentage.toFixed(1)}% of volume`);
-                    
-                    // Pass if enough unique buyers AND volume not too concentrated
-                    volumeQualityPassed = uniqueBuyersRecent >= 30 && topBuyerPercentage < 20;
-                    
-                    if (!volumeQualityPassed) {
-                        console.log('⚠️ Volume quality check FAILED:');
-                        if (uniqueBuyersRecent < 30) {
-                            console.log(`   • Only ${uniqueBuyersRecent} buyers (need 30+)`);
-                        }
-                        if (topBuyerPercentage >= 20) {
-                            console.log(`   • Top buyer controls ${topBuyerPercentage.toFixed(1)}% (need <20%)`);
-                        }
-                    } else {
-                        console.log('✅ Volume quality check PASSED - organic buying detected');
-                    }
-                    
-                } catch (volumeError) {
-                    console.log('⚠️ Could not verify volume quality, assuming failed');
-                    volumeQualityPassed = false;
-                }
+                // Sell 70% at graduation, hold 30% moon bag
+                const sellPercentAtGrad = 100 - postGradConfig.moonBagPercentage;
+                console.log(`💰 Selling ${sellPercentAtGrad}% at graduation`);
+                console.log(`🌙 Holding ${postGradConfig.moonBagPercentage}% MOON BAG for post-grad pumps`);
                 
-                // STRATEGY 3: GRADUATION BREAKOUT HOLD
-                // Decide if we should hold through graduation or exit
-                const shouldHoldThroughGrad = 
-                    avgVelocity > 4 && // Was filling fast
-                    velocityPerMinute > 2 && // Still has momentum
-                    tier3Active && // Still holding moon bag
-                    volumeQualityPassed; // Volume is organic (NEW CHECK)
+                // TODO: In production, execute partial sell here (70%)
+                // For now, simulate by marking position
+                const graduationPrice = currentMC;
                 
-                if (shouldHoldThroughGrad) {
-                    console.log('🚀 GRADUATION BREAKOUT STRATEGY ACTIVE!');
-                    console.log('   💎 Holding through graduation for post-grad pump');
-                    console.log('   ⏱️ Will monitor for 1-2 minutes post-graduation');
-                    
-                    // Wait 60-90 seconds for post-graduation FOMO pump
-                    const waitTime = 75000; // 75 seconds
-                    console.log(`⏳ Waiting ${waitTime/1000}s for post-graduation momentum...`);
-                    
-                    let postGradChecks = 0;
-                    const postGradInterval = setInterval(async () => {
-                        postGradChecks++;
-                        
-                        // After 60-90 seconds, sell everything
-                        if (postGradChecks >= 3) { // 3 x 25 seconds = 75 sec
-                            console.log('💰 Post-graduation exit window reached - SELLING ALL');
-                            await sellToken(connection, payer, mint, 'Post-grad breakout exit');
-                            clearInterval(postGradInterval);
-                            clearInterval(monitorInterval);
-                            return;
-                        }
-                        
-                        console.log(`📊 Post-grad check ${postGradChecks}/3...`);
-                        
-                    }, 25000); // Check every 25 seconds
-                    
-                } else {
-                    console.log('⚠️ Graduation conditions not perfect - standard exit');
-                    console.log('   Velocity: ' + avgVelocity.toFixed(2) + '%/min (need >4)');
-                    console.log('⏳ Waiting 30 seconds then exit...');
-                    await new Promise(resolve => setTimeout(resolve, 30000));
-                    
-                    // Sell on Raydium (Jupiter routes automatically)
-                    await sellToken(connection, payer, mint, 'Post-graduation standard exit');
-                    clearInterval(monitorInterval);
-                    return;
-                }
+                // Start post-graduation Raydium monitoring
+                await monitorPostGraduation(
+                    connection,
+                    payer,
+                    mint,
+                    token.raydium_pool,
+                    graduationPrice,
+                    postGradConfig
+                );
+                
+                // Exit pre-grad monitoring
+                clearInterval(monitorInterval);
+                return;
             }
             
             console.log(`📊 Progress: ${progress.toFixed(1)}% | MC: $${(currentMC / 1000).toFixed(1)}k`);

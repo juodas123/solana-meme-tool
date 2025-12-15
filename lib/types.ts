@@ -184,3 +184,22 @@ export interface TraderRiskResult {
   features: any;
   error?: string;
 }
+
+export type MoonBagStrategy = 'conservative' | 'balanced' | 'aggressive';
+
+export interface PostGraduationConfig {
+  enabled: boolean;
+  moonBagPercentage: number; // 10-50%, default 30%
+  strategy: MoonBagStrategy;
+  targets: {
+    firstExit: number;    // % to sell at 3-5x (default 50%)
+    secondExit: number;   // % to sell at 8-10x (default 30%)
+    trailingStop: number; // % to hold with -30% stop (default 20%)
+  };
+  multipliers: {
+    first: number;   // default 3-5x
+    second: number;  // default 8-10x
+  };
+  stopLossPercent: number;  // default -30% from peak
+  maxTimeMinutes: number;   // default 30 minutes
+}

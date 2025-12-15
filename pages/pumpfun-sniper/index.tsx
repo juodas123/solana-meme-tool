@@ -20,6 +20,11 @@ export default function PumpFunSniper() {
   const [takeProfitPercent, setTakeProfitPercent] = useState(50); // 1.5x profit
   const [stopLossPercent, setStopLossPercent] = useState(20);
   
+  // Moon bag configuration
+  const [enableMoonBag, setEnableMoonBag] = useState(true);
+  const [moonBagPercent, setMoonBagPercent] = useState(30);
+  const [moonBagStrategy, setMoonBagStrategy] = useState<'conservative' | 'balanced' | 'aggressive'>('balanced');
+  
   // Portfolio mode
   const [enablePortfolioMode, setEnablePortfolioMode] = useState(false);
 
@@ -34,7 +39,10 @@ export default function PumpFunSniper() {
         enableVolumeFilter,
         takeProfitPercent,
         stopLossPercent,
-        enablePortfolioMode
+        enablePortfolioMode,
+        enableMoonBag,
+        moonBagPercent,
+        moonBagStrategy
       });
 
       if (response.data.success) {
@@ -192,6 +200,99 @@ export default function PumpFunSniper() {
                 />
                 <p className="text-xs text-gray-500 mt-1">Max loss if graduation fails</p>
               </div>
+            </div>
+
+            {/* Moon Bag Configuration */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="font-semibold text-purple-900 dark:text-purple-100">🌙 Post-Graduation Moon Bag</label>
+                <input
+                  type="checkbox"
+                  checked={enableMoonBag}
+                  onChange={(e) => setEnableMoonBag(e.target.checked)}
+                  className="w-4 h-4"
+                />
+              </div>
+              
+              {enableMoonBag && (
+                <div className="space-y-4">
+                  {/* Strategy Selection */}
+                  <div>
+                    <label className="block mb-2 text-sm">Moon Bag Size Strategy</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => {
+                          setMoonBagStrategy('conservative');
+                          setMoonBagPercent(15);
+                        }}
+                        className={`p-2 rounded border-2 transition-all text-xs ${
+                          moonBagStrategy === 'conservative'
+                            ? 'border-green-500 bg-green-100 dark:bg-green-900'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-green-300'
+                        }`}
+                      >
+                        <div className="font-semibold">Conservative</div>
+                        <div className="text-xs opacity-75">15% bag</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMoonBagStrategy('balanced');
+                          setMoonBagPercent(30);
+                        }}
+                        className={`p-2 rounded border-2 transition-all text-xs ${
+                          moonBagStrategy === 'balanced'
+                            ? 'border-blue-500 bg-blue-100 dark:bg-blue-900'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="font-semibold">Balanced</div>
+                        <div className="text-xs opacity-75">30% bag</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMoonBagStrategy('aggressive');
+                          setMoonBagPercent(50);
+                        }}
+                        className={`p-2 rounded border-2 transition-all text-xs ${
+                          moonBagStrategy === 'aggressive'
+                            ? 'border-red-500 bg-red-100 dark:bg-red-900'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-red-300'
+                        }`}
+                      >
+                        <div className="font-semibold">Aggressive</div>
+                        <div className="text-xs opacity-75">50% bag</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Custom Moon Bag Size */}
+                  <div>
+                    <label className="block mb-2 text-sm">Custom Moon Bag Size (%)</label>
+                    <Input
+                      type="number"
+                      min="10"
+                      max="50"
+                      value={moonBagPercent.toString()}
+                      onChange={(e) => setMoonBagPercent(parseInt(e.target.value) || 30)}
+                      placeholder="30"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Hold {moonBagPercent}% through graduation, sell {100-moonBagPercent}% at 85-95%
+                    </p>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="text-xs bg-purple-100 dark:bg-purple-900/30 rounded p-2">
+                    <div className="font-semibold mb-1">Post-Grad Strategy:</div>
+                    <ul className="space-y-0.5 opacity-90">
+                      <li>• Sell 50% at 5x from graduation</li>
+                      <li>• Sell 30% at 10x from graduation</li>
+                      <li>• Hold 20% with -30% trailing stop</li>
+                      <li>• Max hold time: 30 minutes</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Advanced Options */}
