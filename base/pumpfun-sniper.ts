@@ -1078,15 +1078,15 @@ export async function startPreGraduationSniper(
                     }, 0);
                     
                     // REJECTION CRITERIA:
-                    // 1. Largest holder >50% (stricter than before)
-                    if (finalLargestPercent > 50) {
-                        console.log(`   ❌ Rejected: Largest holder ${finalLargestPercent.toFixed(1)}% (max 50%)`);
+                    // 1. Largest holder >58% (allows legitimate whale buyers at early stage)
+                    if (finalLargestPercent > 58) {
+                        console.log(`   ❌ Rejected: Largest holder ${finalLargestPercent.toFixed(1)}% (max 58%)`);
                         return;
                     }
                     
-                    // 2. Top 5 holders combined >75% (whale cartel protection)
-                    if (finalTop5Combined > 75) {
-                        console.log(`   ❌ Rejected: Top 5 holders ${finalTop5Combined.toFixed(1)}% (max 75%)`);
+                    // 2. Top 5 holders combined >78% (whale cartel protection)
+                    if (finalTop5Combined > 78) {
+                        console.log(`   ❌ Rejected: Top 5 holders ${finalTop5Combined.toFixed(1)}% (max 78%)`);
                         return;
                     }
                     
