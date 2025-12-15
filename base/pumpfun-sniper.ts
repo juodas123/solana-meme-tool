@@ -319,8 +319,8 @@ async function validatePreGraduationToken(
     
     // 1. Check bonding curve progress based on strategy mode
     const isConservative = filters.strategyMode === 'conservative';
-    const minBonding = isConservative ? 60 : 30;
-    const maxBonding = isConservative ? 80 : 60;
+    const minBonding = isConservative ? 50 : 30;
+    const maxBonding = isConservative ? 75 : 60;
     
     if (token.bondingCurveProgress < minBonding) {
         return { valid: false, reason: `Bonding curve too low: ${token.bondingCurveProgress.toFixed(1)}% (need ${minBonding}%+)` };
@@ -346,9 +346,9 @@ async function validatePreGraduationToken(
     }
     
     // 4. Market cap check (adjust range based on strategy)
-    // Aggressive 30-60% = $5k-$15k | Conservative 60-80% = $12k-$25k
-    const minMarketCap = isConservative ? 12000 : 5000;
-    const maxMarketCap = isConservative ? 25000 : 15000;
+    // Aggressive 30-60% = $5k-$15k | Conservative 50-75% = $8k-$20k
+    const minMarketCap = isConservative ? 8000 : 5000;
+    const maxMarketCap = isConservative ? 20000 : 15000;
     
     if (token.usdMarketCap < minMarketCap) {
         return { valid: false, reason: `Market cap too low: $${(token.usdMarketCap / 1000).toFixed(1)}k (need $${minMarketCap/1000}k+)` };
@@ -962,7 +962,7 @@ export async function startPreGraduationSniper(
     monitoringActive = true;
     
     const isConservative = payload.strategyMode === 'conservative';
-    const bondingRange = isConservative ? '60-80%' : '30-60%';
+    const bondingRange = isConservative ? '50-75%' : '30-60%';
     const strategyName = isConservative ? '🛡️ Conservative' : '🚀 Aggressive';
     
     console.log('🚀 Starting Momentum Scalping Sniper...');
@@ -974,7 +974,7 @@ export async function startPreGraduationSniper(
     pumpPortalWs = new WebSocket(PUMPPORTAL_WS);
     
     pumpPortalWs.on('open', () => {
-        const bondingRange = payload.strategyMode === 'conservative' ? '60-80%' : '30-60%';
+        const bondingRange = payload.strategyMode === 'conservative' ? '50-75%' : '30-60%';
         console.log('✅ Connected to PumpPortal real-time feed');
         pumpPortalWs!.send(JSON.stringify({ method: 'subscribeNewToken' }));
         console.log('📡 Subscribed to new token creations');
@@ -1017,9 +1017,14 @@ export async function startPreGraduationSniper(
             
             // Check if in momentum target range based on strategy mode
             const isConservative = payload.strategyMode === 'conservative';
-            const minBonding = isConservative ? 60 : 30;
-            const maxBonding = isConservative ? 80 : 60;
-            const strategyLabel = isConservative ? '60-80% (Conservative)' : '30-60% (Aggressive)';
+            const minBonding = isConservative ? 50 : 30;
+            const maxBonding = isConservative ? 75 : 60;
+            const strategyLabel = isConservative ? '50-75% (Conservative)' : '30-60% (Aggressive)';
+            
+            // DEBUG: Show all tokens with their bonding % (only if in conservative mode to see what we're missing)
+            if (isConservative && progress >= 45) {
+                console.log(`📊 ${token.symbol}: ${progress.toFixed(1)}% bonding ${progress >= 50 && progress <= 75 ? '✅ IN RANGE' : '⚠️ out of range'}`);
+            }
             
             if (progress >= minBonding && progress <= maxBonding && !token.complete) {
                 console.log(`\n🎯 NEW TOKEN: ${token.symbol} [${strategyLabel}]`);

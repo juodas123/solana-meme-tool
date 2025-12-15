@@ -137,8 +137,8 @@ export default function PumpFunSniper() {
                       : 'border-gray-300 dark:border-gray-600 hover:border-green-300'
                   }`}
                 >
-                  <div className="font-semibold">🛡️ Conservative (60-80%)</div>
-                  <div className="text-xs mt-1 text-gray-600 dark:text-gray-400">Safer, 1.3-1.5x profit potential</div>
+                  <div className="font-semibold">🛡️ Conservative (50-75%)</div>
+                  <div className="text-xs mt-1 text-gray-600 dark:text-gray-400">Balanced, 1.5-2x profit potential</div>
                 </button>
               </div>
             </div>
